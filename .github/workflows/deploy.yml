@@ -14,10 +14,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install mdBook
+      - name: Install mdBook (latest release, Linux x86_64-unknown-linux-gnu)
         run: |
-          curl -sSL https://github.com/rust-lang/mdBook/releases/latest/download/mdbook-v0.4.40-x86_64-unknown-linux-gnu.tar.gz \
-            | tar -xz -C $HOME/.cargo/bin
+          URL=$(
+            curl -s https://api.github.com/repos/rust-lang/mdBook/releases/latest \
+            | jq -r '.assets[]
+              | select(.name | endswith("x86_64-unknown-linux-gnu.tar.gz"))
+            .browser_download_url'
+          )
+          echo "Downloading $URL"
+          curl -sSL "$URL" | tar -xz -C $HOME/.cargo/bin
+
 
       - name: Build book
         run: mdbook build
