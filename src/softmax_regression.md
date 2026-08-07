@@ -110,7 +110,7 @@ $$
 首先对\\(h\\)求导：
 $$
 \frac{\partial l_{err}(h, y)}{\partial h_{i}} = \frac{\partial}{\partial h_{i}}(-h_{y} + \log(\sum_{j=i}^{k}\exp(h_{j}))) \\\\
-= -1\\{i=y\\} + \frac{\exp(h_{i})}{\sum_{j=1}^{\exp(h_{j})}} \\\\
+= -1\\{i=y\\} + \frac{\exp(h_{i})}{\sum_{j=1}^{k}\exp(h_{j})} \\\\
 = - e_{y} + z
 $$
 然后求\\(h\\)对\\(\theta\\)的导数：
