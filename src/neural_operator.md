@@ -394,7 +394,7 @@ $$
 $$
 
 ## conv2D
-对于 $N \times Cin \times Hin \times Win$ 排列的输入数据来说，经过conv2d的输出是 $N \times Cout \times Hout \times Wout$ ，我们先把Batch维度`N`省略，从单一输入数据看计算过程：
+对于 \\(N \times Cin \times Hin \times Win\\) 排列的输入数据来说，经过conv2d的输出是 \\(N \times Cout \times Hout \times Wout\\) ，我们先把Batch维度`N`省略，从单一输入数据看计算过程：
 $$
 out(Cout_{i}) = bias(Cout_{i}) + \sum_{k=0}^{Cin-1} input(k) * weight(Cout_{i}, k) \\\\
 out \in \mathbb{R}^{Cout \times Hout \times Wout} \\\\
@@ -437,4 +437,53 @@ $$
 $$
 \frac{\partial Out_{cout, i, j}}{\partial weight_{cout, ch, p, q}} = In(ch, m(i,p), n(j,q)) \\\\
 \frac{\partial Out_{cout, i, j}}{\partial In_{ch, m(i,p), n(j,q)}} = weight_{cout, ch, p, q}
+$$
+
+## PWL(piecewise linear)
+对于给定的递增`x`节点 \\(x_{1}, x_{2}...x_{k}\\) ，有对应的`y`节点 \\(y_{1}, y_{2}...y_{k}\\) :
+$$
+Out =
+\begin{cases}
+    y_{1}, & if\text{ }In < x_{1},\\\\
+    \frac{y_{2} - y_{1}}{x_{2} - x_{1}} \cdot (In - x_{1}) + y_{1}, & if\text{ } x_{1} \leq In < x_{2},\\\\
+    ... \\\\
+    \frac{y_{k} - y_{k-1}}{x_{k} - x_{k-1}} \cdot (In - x_{k-1}) + y_{k-1}, & if\text{ } x_{k-1} \leq In < x_{k},\\\\
+    y_{k}, & otherwise
+\end{cases}
+$$
+
+反向传播求导，因为是输入输出是1对1的关系，所以对最终`Loss`的导数就是 \\( \frac{\partial Loss}{\partial Out_{i}} * \frac{\partial Out_{i}}{\partial In_{i}} \\)
+$$
+\frac{\partial Out}{\partial In} =
+\begin{cases}
+    0, & if\text{ }In < x_{1},\\\\
+    \frac{y_{2} - y_{1}}{x_{2} - x_{1}}, & if\text{ } x_{1} \leq In < x_{2},\\\\
+    ... \\\\
+    \frac{y_{k} - y_{k-1}}{x_{k} - x_{k-1}}, & if\text{ } x_{k-1} \leq In < x_{k},\\\\
+    0, & otherwise
+\end{cases}
+$$
+如果要求`x`和`y`参数可训：
+$$
+\frac{\partial Loss}{\partial x_{j}} = \sum_{i=1}^{m} \frac{\partial Loss}{\partial Out_{i}} * \frac{\partial Out_{i}}{\partial x_{j}} \\\\
+\frac{\partial Loss}{\partial y_{j}} = \sum_{i=1}^{m} \frac{\partial Loss}{\partial Out_{i}} * \frac{\partial Out_{i}}{\partial y_{j}} \\\\
+j \in \\{1,2,3...k \\}
+$$
+接下来，对每一个 \\(In_{i}\\) 找到对应的`j`索引，如果 `j=0`（比最左侧x节点还小）：
+$$
+\frac{\partial Out_{i}}{\partial x_{1}} = 0 \\\\
+\frac{\partial Out_{i}}{\partial y_{1}} = 1
+$$
+如果`j=k`（比最右侧x节点还大）
+$$
+\frac{\partial Out_{i}}{\partial x_{k}} = 0 \\\\
+\frac{\partial Out_{i}}{\partial y_{k}} = 1
+$$
+如果是正常情况 \\( 1 \leq j < k \\) :
+$$
+Out_{i} = \frac{y_{j+1} - y_{j}}{x_{j+1} - x_{j}} \cdot (In_{i} - x_{j}) + y_{j} \\\\
+\frac{\partial Out_{i}}{\partial x_{j}} = \frac{In_{i}-x_{j+1}}{(x_{j+1}-x_{j})^2} * (y_{j+1} - y_{j}) \\\\
+\frac{\partial Out_{i}}{\partial x_{j+1}} = \frac{x_{j} - In_{i}}{(x_{j+1}-x_{j})^2} * (y_{j+1} - y_{j}) \\\\
+\frac{\partial Out_{i}}{\partial y_{j}} = 1 - \frac{In_{i} - x_{j}}{x_{j+1}-x_{j}} \\\\
+\frac{\partial Out_{i}}{\partial y_{j+1}} = \frac{In_{i} - x_{j}}{x_{j+1}-x_{j}}
 $$
