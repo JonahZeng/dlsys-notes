@@ -119,6 +119,38 @@ void print_gpu_info(int device = 0) {
     memory-bound → blockDim 越大越好（256–512）
     compute-bound → blockDim 128–256 最佳
 
+## lanuch kernel configure
+cuda提供API: `cudaOccupancyMaxPotentialBlockSize` 获取高占用率的block size配置和最小的grid size配置：
+```cpp
+/**
+* minGridSize：返回满足高占用率的最小grid size
+* blockSize：返回高占用率的block size
+* func：kernel函数
+* dynamicSMemSize：block内的动态shared memory占用
+* blockSizeLimit：kernel函数的最大block size，比如说kernel函数需要处理1000个数据，每个thread处理一个数据，那么block size最大限制就是1000
+*/
+template < class T >
+__host__​cudaError_t cudaOccupancyMaxPotentialBlockSize ( int* minGridSize, int* blockSize, T func, size_t dynamicSMemSize = 0, int  blockSizeLimit = 0 ) [inline]
+```
+计算硬件利用率，硬件利用率是指：驻留thread warp数量 / sm最大可驻留warp数量。这里需要用到一个api:
+```cpp
+/**
+* numBlocks: 返回sm可驻留的block数量
+* func：kernel函数
+* blockSize：block size配置
+* dynamicSMemSize：block内的动态shared memory占用
+*/
+template < class T >
+__host__​cudaError_t cudaOccupancyMaxActiveBlocksPerMultiprocessor ( int* numBlocks, T func, int  blockSize, size_t dynamicSMemSize ) [inline]
+```
+理论利用率计算：
+```cpp
+activeWarps = numBlocks * blockSize / prop.warpSize;
+maxWarps = prop.maxThreadsPerMultiProcessor / prop.warpSize;
+
+occupancy = (double)activeWarps / maxWarps;
+```
+
 ## fp16
 fp16是AI领域常用的基础数据类型，cuda硬件支持fp16的运算指令，以及simd指令
 ```cpp
@@ -128,4 +160,60 @@ half2 result;
 float f_result = __low2float(result) + __high2float(result); // half2拆分为两个fp16然后相加
 
 __hadd2(v[threadIdx.x], v[threadIdx.x + 64]); // half2，两个fp16逐元素相加
+```
+
+## 原子指令
+原子指令用于多thread共同读写基础变量，为了防止数据竞争导致的错误。
+```cpp
+  // Atomic addition
+  atomicAdd(&g_odata[0], 10);
+
+  // Atomic subtraction (final should be 0)
+  atomicSub(&g_odata[1], 10);
+
+  // Atomic exchange
+  atomicExch(&g_odata[2], tid);
+
+  // Atomic maximum
+  atomicMax(&g_odata[3], tid);
+
+  // Atomic minimum
+  atomicMin(&g_odata[4], tid);
+
+  // Atomic increment (modulo 17+1)
+  atomicInc((unsigned int *)&g_odata[5], 17);
+
+  // Atomic decrement
+  atomicDec((unsigned int *)&g_odata[6], 137);
+
+  // Atomic compare-and-swap
+  atomicCAS(&g_odata[7], tid - 1, tid);
+
+  // Bitwise atomic instructions
+
+  // Atomic AND
+  atomicAnd(&g_odata[8], 2 * tid + 7);
+
+  // Atomic OR
+  atomicOr(&g_odata[9], 1 << tid);
+
+  // Atomic XOR
+  atomicXor(&g_odata[10], tid);
+```
+
+## zero copy
+通常来说host只能操作host的内存数据，device只能操作device端的内存数据，如果device要操作host的内存数据，需要通过`cudaMemcpy`把数据复制到device端；但是device端也可以通过memory map来直接操作host的数据：
+```cpp
+size_t bytes;
+float *a, *b, *c;           // Pinned memory allocated on the CPU
+float *a_UA, *b_UA, *c_UA;  // Non-4K Aligned Pinned memory on the CPU
+float *d_a, *d_b, *d_c;     // Device pointers for mapped memory
+
+checkCudaErrors(cudaHostAlloc((void **)&a, bytes, cudaHostAllocMapped));
+checkCudaErrors(cudaHostAlloc((void **)&b, bytes, cudaHostAllocMapped));
+checkCudaErrors(cudaHostAlloc((void **)&c, bytes, cudaHostAllocMapped));
+// host的内存地址被映射到device内存地址
+checkCudaErrors(cudaHostGetDevicePointer((void **)&d_a, (void *)a, 0));
+checkCudaErrors(cudaHostGetDevicePointer((void **)&d_b, (void *)b, 0));
+checkCudaErrors(cudaHostGetDevicePointer((void **)&d_c, (void *)c, 0));
 ```
