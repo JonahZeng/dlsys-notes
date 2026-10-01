@@ -65,7 +65,7 @@ __global__ void matmul(float* A, float* B, float* C, int m, int k, int n)
 }
 ```
 这个实现利用shared memory来缓存重复利用的A行B列，达到相邻thread重复利用memory的目的，但是它的问题在于：
-1. k长度如何很大，则shared memory可能装不下导致SM驻留block减小，达不到隐藏memory延迟的的目的。
+1. k长度如果很大，则shared memory可能装不下导致SM驻留block减小，达不到隐藏memory延迟的的目的。
 2. 每一个thread要访问 2 * k / TILE次global memory，计算必须等到数据完全搬运完成之后才能开始。
 
 ### 使用shared memory的tile方法

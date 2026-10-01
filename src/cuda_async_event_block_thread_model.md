@@ -94,13 +94,13 @@ void print_gpu_info(int device = 0) {
 ```
 
 思考：
-1. 如果thread的寄存器和block的shared memory占用过大，导致sm驻留的warp数量偏小，如何优化？
-   驻留warp过小，导致memory延迟被暴漏出来，先通过Nsight Compute来确定：
+1. 如果thread的寄存器和block的shared memory占用过大，导致sm驻留的warp数量偏小，如何优化？</br>
 
-    寄存器受限（Register Limited）--- 优化寄存器占用，减小临时变量，减小内联优化导致的寄存器占用，减小大数组放在寄存器上等措施
-    shared memory 受限（Shared Memory Limited）--- 减小tile，较小double buffer，等
-    warp 数量受限（Warp Limited）--- 
-    block 数量受限（Block Limited）
+    驻留warp过小，导致memory延迟被暴漏出来，需先通过Nsight Compute来确定：
+    - 寄存器受限（Register Limited）--- 优化寄存器占用，减小临时变量，减小内联优化导致的寄存器占用，减小大数组放在寄存器上等措施</br>
+    - shared memory 受限（Shared Memory Limited）--- 减小tile，较小double buffer，等</br>
+    - arp 数量受限（Warp Limited）--- 先解决寄存器和shared memory占用，提升warp驻留数量</br>
+    - block 数量受限（Block Limited）--- 调整kernel launch configure
 
     使用API查询最大blockDim:
     ```cpp
@@ -112,12 +112,13 @@ void print_gpu_info(int device = 0) {
     ```
 
 2. 如果thread占用寄存器很小，没有shared memory占用，应该怎么设置gridDim，blockDim？
+
     最佳实践：
-    blockDim = 128 或 256
-    gridDim = (N + blockDim - 1) / blockDim
-    gridDim ≥ SM 数 × 4（保证 SM 不空泡）
-    memory-bound → blockDim 越大越好（256–512）
-    compute-bound → blockDim 128–256 最佳
+    - blockDim = 128 或 256
+    - gridDim = (N + blockDim - 1) / blockDim
+    - gridDim ≥ SM 数 × 4（保证 SM 不空泡）
+    - memory-bound → blockDim 越大越好（256–512）
+    - compute-bound → blockDim 128–256 最佳
 
 ## lanuch kernel configure
 cuda提供API: `cudaOccupancyMaxPotentialBlockSize` 获取高占用率的block size配置和最小的grid size配置：
@@ -130,7 +131,7 @@ cuda提供API: `cudaOccupancyMaxPotentialBlockSize` 获取高占用率的block s
 * blockSizeLimit：kernel函数的最大block size，比如说kernel函数需要处理1000个数据，每个thread处理一个数据，那么block size最大限制就是1000
 */
 template < class T >
-__host__​cudaError_t cudaOccupancyMaxPotentialBlockSize ( int* minGridSize, int* blockSize, T func, size_t dynamicSMemSize = 0, int  blockSizeLimit = 0 ) [inline]
+__host__​ cudaError_t cudaOccupancyMaxPotentialBlockSize ( int* minGridSize, int* blockSize, T func, size_t dynamicSMemSize = 0, int  blockSizeLimit = 0 ) [inline]
 ```
 计算硬件利用率，硬件利用率是指：驻留thread warp数量 / sm最大可驻留warp数量。这里需要用到一个api:
 ```cpp
@@ -141,7 +142,7 @@ __host__​cudaError_t cudaOccupancyMaxPotentialBlockSize ( int* minGridSize, in
 * dynamicSMemSize：block内的动态shared memory占用
 */
 template < class T >
-__host__​cudaError_t cudaOccupancyMaxActiveBlocksPerMultiprocessor ( int* numBlocks, T func, int  blockSize, size_t dynamicSMemSize ) [inline]
+__host__​ cudaError_t cudaOccupancyMaxActiveBlocksPerMultiprocessor ( int* numBlocks, T func, int  blockSize, size_t dynamicSMemSize ) [inline]
 ```
 理论利用率计算：
 ```cpp

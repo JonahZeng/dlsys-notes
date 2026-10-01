@@ -34,6 +34,9 @@
 ```bash
 # 安装 mdBook
 cargo install mdbook
+cargo install mdbook-mermaid
+cd {project_dir}
+mdbook-mermaid install .
 
 # 本地预览
 mdbook serve
