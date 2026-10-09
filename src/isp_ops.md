@@ -148,3 +148,54 @@ $$
 \frac{\partial Out_{3}}{\partial Z_{c}} = w_{c}, \\\\
 c \in \\{000, 100, 010, 110, 001, 101, 011, 111\\}
 $$
+
+## CCM
+
+### 正向
+ccm操作也是点对点操作，硬性规定`channels=3`:
+$$
+\begin{bmatrix}
+R_{out} \\\\
+G_{out} \\\\
+B_{out}
+\end{bmatrix} = 
+\begin{bmatrix}
+1.0 - M_{1} - M_{2} & M_{1} & M_{2} \\\\
+M_{3} & 1.0 - M_{3} - M_{4} & M_{4} \\\\
+M_{5} & M_{6} & 1.0 - M_{5} - M_{6}
+\end{bmatrix}
+\cdot 
+\begin{bmatrix}
+R_{in} \\\\
+G_{in} \\\\
+B_{in}
+\end{bmatrix}
+$$ 
+
+### 反向
+首先看对输入数据的求导：
+$$
+\frac{\partial Loss}{\partial R_{in}} = \frac{\partial Loss}{\partial R_{out}} \cdot \frac{\partial R_{out}}{\partial R_{in}} + \frac{\partial Loss}{\partial G_{out}} \cdot \frac{\partial G_{out}}{\partial R_{in}} + \frac{\partial Loss}{\partial B_{out}} \cdot \frac{\partial B_{out}}{\partial R_{in}} \\\\
+\frac{\partial Loss}{\partial R_{in}} = \frac{\partial Loss}{\partial R_{out}} \cdot (1.0 - M_{1} - M_{2}) + \frac{\partial Loss}{\partial G_{out}} \cdot M_{3} + \frac{\partial Loss}{\partial B_{out}} \cdot M_{5}
+$$
+同理可得：
+$$
+\frac{\partial Loss}{\partial G_{in}} = \frac{\partial Loss}{\partial R_{out}} \cdot M_{1} + \frac{\partial Loss}{\partial G_{out}} \cdot (1.0 - M_{3} - M_{4}) + \frac{\partial Loss}{\partial B_{out}} \cdot M_{6} \\\\
+\frac{\partial Loss}{\partial B_{in}} = \frac{\partial Loss}{\partial R_{out}} \cdot M_{2} + \frac{\partial Loss}{\partial G_{out}} \cdot M_{4} + \frac{\partial Loss}{\partial B_{out}} \cdot (1.0 - M_{5} - M_{6})
+$$
+然后看6个可微参数求导：
+$$
+\frac{\partial Loss}{\partial M_{1}} = \frac{\partial Loss}{\partial R_{out}} \cdot \frac{\partial R_{out}}{\partial M_{1}} + \frac{\partial Loss}{\partial G_{out}} \cdot \frac{\partial G_{out}}{\partial M_{1}} + \frac{\partial Loss}{\partial B_{out}} \cdot \frac{\partial B_{out}}{\partial M_{1}}
+$$
+\\(M_{1}\\)只对\\(R_{out}\\)有贡献，所以：
+$$
+\frac{\partial Loss}{\partial M_{1}} = \frac{\partial Loss}{\partial R_{out}} \cdot \frac{\partial R_{out}}{\partial M_{1}} = \frac{\partial Loss}{\partial R_{out}} \cdot (G_{in} - R_{in})
+$$
+同理可得：
+$$
+\frac{\partial Loss}{\partial M_{2}} = \frac{\partial Loss}{\partial R_{out}} \cdot (B_{in} - R_{in}) \\\\
+\frac{\partial Loss}{\partial M_{3}} = \frac{\partial Loss}{\partial G_{out}} \cdot (R_{in} - G_{in}) \\\\
+\frac{\partial Loss}{\partial M_{4}} = \frac{\partial Loss}{\partial G_{out}} \cdot (B_{in} - G_{in}) \\\\
+\frac{\partial Loss}{\partial M_{5}} = \frac{\partial Loss}{\partial B_{out}} \cdot (R_{in} - B_{in}) \\\\
+\frac{\partial Loss}{\partial M_{6}} = \frac{\partial Loss}{\partial B_{out}} \cdot (G_{in} - B_{in})
+$$
